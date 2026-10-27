@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cred-server-only-authorino
+  namespace: minha-app
+spec:
+  podSelector:
+    matchLabels: {app: cred-server}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kuadrant-system
+      podSelector:
+        matchLabels:
+          authorino-resource: authorino   # Authorino pod label (RHCL 1.4.4); verify on other versions
+    ports:
+    - port: 8080

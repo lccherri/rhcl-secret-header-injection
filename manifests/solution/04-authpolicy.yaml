@@ -1,0 +1,33 @@
+apiVersion: kuadrant.io/v1
+kind: AuthPolicy
+metadata:
+  name: inject-backend-cred
+  namespace: minha-app
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: echo
+  rules:
+    authentication:
+      "usuarios":
+        anonymous: {}               # placeholder; replace with the real authentication method (JWT/OIDC, API key)
+    metadata:
+      "backendcred":
+        http:
+          url: http://cred-server.minha-app.svc:8080/credential
+        cache:
+          key:
+            expression: "'backend-cred'"
+          ttl: 60
+    authorization:
+      "credencial-presente":        # denies the request when the credential was not fetched (auth.metadata is absent when its only source fails)
+        patternMatching:
+          patterns:
+          - predicate: "has(auth.metadata) && has(auth.metadata.backendcred) && has(auth.metadata.backendcred.value)"
+    response:
+      success:
+        headers:
+          "x-api-key":
+            plain:
+              expression: auth.metadata.backendcred.value

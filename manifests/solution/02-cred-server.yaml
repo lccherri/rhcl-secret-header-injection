@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cred-server-conf
+  namespace: minha-app
+data:
+  credential.conf: |
+    location = /credential {
+        default_type application/json;
+        alias /opt/secret/credential.json;
+        access_log /dev/stdout;   # makes credential fetches visible in `oc logs` (the image logs to a file by default)
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cred-server
+  namespace: minha-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: cred-server}
+  template:
+    metadata:
+      labels: {app: cred-server}
+    spec:
+      containers:
+      - name: nginx
+        image: registry.redhat.io/ubi9/nginx-124
+        command: ["nginx", "-g", "daemon off;"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {memory: 64Mi}
+        volumeMounts:
+        - name: conf
+          mountPath: /opt/app-root/etc/nginx.default.d
+        - name: secret
+          mountPath: /opt/secret
+          readOnly: true
+      volumes:
+      - name: conf
+        configMap: {name: cred-server-conf}
+      - name: secret
+        secret: {secretName: backend-cred}   # no subPath, so Secret updates propagate to the pod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cred-server
+  namespace: minha-app
+spec:
+  selector: {app: cred-server}
+  ports:
+  - port: 8080
